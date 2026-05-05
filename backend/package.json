@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node -e \"console.log('Backend build not required for static deploy')\"",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "seed": "node src/db/seed.js"
