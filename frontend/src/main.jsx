@@ -62,12 +62,17 @@ const nav = [
   ['settings', 'Settings', Settings]
 ];
 
+function validSession(saved) {
+  return Boolean(saved?.token && saved?.user?.id && saved?.user?.business_id && saved?.user?.email && saved?.user?.name);
+}
+
 function App() {
   const [session, setSession] = useState(() => {
     try {
       const raw = localStorage.getItem('ops_session');
       const saved = raw ? JSON.parse(raw) : null;
-      if (saved?.user?.email === 'owner@brightlinehvac.com') {
+      if (!saved) return null;
+      if (!validSession(saved) || saved.user.email === 'owner@brightlinehvac.com') {
         localStorage.removeItem('ops_session');
         localStorage.removeItem('ops_token');
         return null;

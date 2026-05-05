@@ -144,6 +144,8 @@ export async function localApi(path, options = {}) {
     return { token: `local-${newUser.id}`, user: { id: newUser.id, business_id: newUser.business_id, name: newUser.name, email: newUser.email, role: newUser.role } };
   }
 
+  if (!user || !businessId) throw new Error('Please log in again.');
+
   if (path === '/dashboard') {
     const conversations = conversationList(db, businessId);
     const tasks = db.tasks.filter((task) => task.business_id === businessId);

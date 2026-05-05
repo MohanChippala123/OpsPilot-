@@ -1,4 +1,4 @@
-const CACHE_NAME = 'opspilot-pwa-v6';
+const CACHE_NAME = 'opspilot-pwa-v7';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
