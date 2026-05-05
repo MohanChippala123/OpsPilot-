@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   FRONTEND_URL: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
+  RENDER_EXTERNAL_HOSTNAME: z.string().optional(),
   AI_PROVIDER: z.enum(['mock', 'openai', 'anthropic']).default('mock'),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional()
@@ -31,8 +32,14 @@ if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
 }
 
 export function allowedOrigins() {
-  return (env.CORS_ORIGINS || env.FRONTEND_URL || 'http://localhost:5173')
+  const origins = (env.CORS_ORIGINS || env.FRONTEND_URL || 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+  if (env.RENDER_EXTERNAL_HOSTNAME) {
+    origins.push(`https://${env.RENDER_EXTERNAL_HOSTNAME}`);
+  }
+
+  return [...new Set(origins)];
 }
