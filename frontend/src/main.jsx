@@ -106,6 +106,16 @@ function AuthScreen({ onAuth }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    setForm({
+      businessName: '',
+      industry: '',
+      name: '',
+      email: '',
+      password: ''
+    });
+  }, [mode]);
+
   async function submit(event) {
     event.preventDefault();
     setLoading(true);
@@ -157,7 +167,9 @@ function AuthScreen({ onAuth }) {
           </div>
           <HeroMockDashboard />
         </div>
-        <form onSubmit={submit} className="animate-rise form-card rounded-2xl p-5 sm:p-6" style={{ animationDelay: '120ms' }}>
+        <form onSubmit={submit} autoComplete="off" className="animate-rise form-card rounded-2xl p-5 sm:p-6" style={{ animationDelay: '120ms' }}>
+          <input className="hidden" type="text" name="opspilot-no-autofill-email" autoComplete="username" tabIndex="-1" aria-hidden="true" />
+          <input className="hidden" type="password" name="opspilot-no-autofill-password" autoComplete="current-password" tabIndex="-1" aria-hidden="true" />
           <div className="mb-5 flex items-center justify-between">
             <div>
               <p className="text-sm text-muted">Welcome to</p>
@@ -175,13 +187,13 @@ function AuthScreen({ onAuth }) {
           <div className="space-y-3">
             {mode === 'signup' && (
               <>
-                <Input label="Business name" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} />
-                <Input label="Industry" value={form.industry} onChange={(industry) => setForm({ ...form, industry })} />
-                <Input label="Your name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+                <Input label="Business name" name="opspilot-business-name" autoComplete="off" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} />
+                <Input label="Industry" name="opspilot-industry" autoComplete="off" value={form.industry} onChange={(industry) => setForm({ ...form, industry })} />
+                <Input label="Your name" name="opspilot-owner-name" autoComplete="off" value={form.name} onChange={(name) => setForm({ ...form, name })} />
               </>
             )}
-            <Input label="Email" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-            <Input label="Password" type="password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+            <Input label="Email" name={`opspilot-${mode}-email`} autoComplete="off" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
+            <Input label="Password" name={`opspilot-${mode}-password`} autoComplete="new-password" type="password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
           </div>
           {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <button className="button-primary mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white" disabled={loading}>
@@ -268,6 +280,7 @@ function TopBar() {
 function InstallButton({ className = '' }) {
   const [prompt, setPrompt] = useState(null);
   const [installed, setInstalled] = useState(window.matchMedia?.('(display-mode: standalone)').matches);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     function beforeInstall(event) {
@@ -287,17 +300,24 @@ function InstallButton({ className = '' }) {
   }, []);
 
   async function install() {
-    if (!prompt) return;
+    if (installed) return;
+    if (!prompt) {
+      setMessage('Use your browser menu and choose Install app or Add to home screen.');
+      return;
+    }
     prompt.prompt();
     await prompt.userChoice;
     setPrompt(null);
   }
 
   return (
-    <button type="button" onClick={install} disabled={!prompt || installed} className={`button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${className}`}>
-      <ArrowUpRight size={16} />
-      {installed ? 'Installed' : 'Install app'}
-    </button>
+    <span className={`inline-flex flex-col gap-2 ${className}`}>
+      <button type="button" onClick={install} disabled={installed} className="button-secondary inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold">
+        <ArrowUpRight size={16} />
+        {installed ? 'Installed' : 'Install app'}
+      </button>
+      {message && <span className="text-xs font-medium text-muted">{message}</span>}
+    </span>
   );
 }
 
@@ -562,8 +582,8 @@ function Metric({ label, value, Icon, index = 0 }) {
   return <div className="metric-card rounded-2xl p-5" style={{ animationDelay: `${index * 70}ms` }}><div className="flex items-center justify-between"><Icon size={20} className="text-brand" /><ArrowUpRight size={16} className="text-muted" /></div><p className="mt-4 text-4xl font-bold">{value}</p><p className="text-sm text-muted">{label}</p></div>;
 }
 
-function Input({ label, value, onChange, type = 'text' }) {
-  return <label className="block text-sm font-medium">{label}<input className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+function Input({ label, value, onChange, type = 'text', name, autoComplete = 'off' }) {
+  return <label className="block text-sm font-medium">{label}<input className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" name={name} autoComplete={autoComplete} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Toggle({ label, checked, onChange }) {
