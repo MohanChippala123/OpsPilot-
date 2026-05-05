@@ -64,8 +64,14 @@ const nav = [
 
 function App() {
   const [session, setSession] = useState(() => {
-    const raw = localStorage.getItem('ops_session');
-    return raw ? JSON.parse(raw) : null;
+    try {
+      const raw = localStorage.getItem('ops_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      localStorage.removeItem('ops_session');
+      localStorage.removeItem('ops_token');
+      return null;
+    }
   });
   const [page, setPage] = useState('dashboard');
 
@@ -290,8 +296,9 @@ function InstallButton({ className = '' }) {
 }
 
 function Dashboard() {
-  const { data, loading } = useApi('/dashboard');
+  const { data, loading, error, reload } = useApi('/dashboard');
   if (loading) return <PageSkeleton title="Dashboard" />;
+  if (error || !data?.counts) return <PageError title="Dashboard" error={error} onRetry={reload} />;
   const cards = [
     ['Open messages', data.counts.openMessages, MessageSquareText],
     ['AI suggestions', data.counts.aiSuggestions, Sparkles],
@@ -323,7 +330,7 @@ function Dashboard() {
 }
 
 function Messages() {
-  const { data, loading, reload } = useApi('/messages');
+  const { data, loading, error, reload } = useApi('/messages');
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState('');
   const [incoming, setIncoming] = useState({ customerName: 'Jordan Lee', customerEmail: 'jordan@example.com', customerPhone: '(555) 019-9191', channel: 'sms', body: 'Can we book a maintenance visit for tomorrow afternoon?' });
@@ -348,6 +355,7 @@ function Messages() {
   }
 
   if (loading) return <PageSkeleton title="Messages" />;
+  if (error || !data) return <PageError title="Messages" error={error} onRetry={reload} />;
   return (
     <Page title="Messages" subtitle="Review customer conversations, AI intent, and suggested replies.">
       <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
@@ -390,8 +398,9 @@ function Messages() {
 }
 
 function CalendarPage() {
-  const { data, loading } = useApi('/appointments');
+  const { data, loading, error, reload } = useApi('/appointments');
   if (loading) return <PageSkeleton title="Calendar" />;
+  if (error || !data?.appointments) return <PageError title="Calendar" error={error} onRetry={reload} />;
   return (
     <Page title="Calendar" subtitle="Appointment requests and scheduled service windows.">
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
@@ -409,7 +418,7 @@ function CalendarPage() {
 }
 
 function Tasks() {
-  const { data, loading, reload } = useApi('/tasks');
+  const { data, loading, error, reload } = useApi('/tasks');
   const columns = [
     ['todo', 'To do'],
     ['in_progress', 'In progress'],
@@ -420,6 +429,7 @@ function Tasks() {
     await reload();
   }
   if (loading) return <PageSkeleton title="Jobs" />;
+  if (error || !data?.tasks) return <PageError title="Jobs" error={error} onRetry={reload} />;
   return (
     <Page title="Jobs" subtitle="Kanban-style workflow for service requests, reminders, and follow-ups.">
       <div className="grid gap-4 lg:grid-cols-3">
@@ -441,7 +451,7 @@ function Tasks() {
 }
 
 function SettingsPage() {
-  const { data, loading, reload } = useApi('/settings');
+  const { data, loading, error, reload } = useApi('/settings');
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState(null);
   useEffect(() => {
@@ -464,7 +474,9 @@ function SettingsPage() {
     await reload();
   }
 
-  if (loading || !form) return <PageSkeleton title="Settings" />;
+  if (loading) return <PageSkeleton title="Settings" />;
+  if (error || !data) return <PageError title="Settings" error={error} onRetry={reload} />;
+  if (!form) return <PageSkeleton title="Settings" />;
   return (
     <Page title="Settings" subtitle="Configure the business profile and assistant behavior.">
       <form onSubmit={save} className="grid max-w-4xl gap-5 lg:grid-cols-2">
@@ -509,6 +521,31 @@ function Page({ title, subtitle, children }) {
 
 function PageSkeleton({ title }) {
   return <Page title={title} subtitle="Loading workspace data..."><div className="grid gap-3 sm:grid-cols-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-32 rounded-xl" />)}</div></Page>;
+}
+
+function PageError({ title, error, onRetry }) {
+  return (
+    <Page title={title} subtitle="OpsPilot could not load this workspace view.">
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800">
+        <p className="font-semibold">Something went wrong while loading the app.</p>
+        <p className="mt-2 text-sm">{error?.message || 'Refresh the page or reset the local app data.'}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button onClick={onRetry} className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white">Retry</button>
+          <button
+            onClick={() => {
+              localStorage.removeItem('ops_session');
+              localStorage.removeItem('ops_token');
+              localStorage.removeItem('opspilot_local_db');
+              window.location.reload();
+            }}
+            className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold"
+          >
+            Reset app data
+          </button>
+        </div>
+      </div>
+    </Page>
+  );
 }
 
 function Panel({ title, action, children }) {

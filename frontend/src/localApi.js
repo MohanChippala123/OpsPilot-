@@ -54,7 +54,14 @@ function defaultDb() {
 
 function loadDb() {
   const raw = localStorage.getItem(DB_KEY);
-  if (raw) return JSON.parse(raw);
+  if (raw) {
+    try {
+      const db = JSON.parse(raw);
+      if (db?.users?.length && db?.businesses?.length) return db;
+    } catch {
+      localStorage.removeItem(DB_KEY);
+    }
+  }
   const db = defaultDb();
   saveDb(db);
   return db;
@@ -65,7 +72,13 @@ function saveDb(db) {
 }
 
 function currentUser(db) {
-  const session = JSON.parse(localStorage.getItem('ops_session') || 'null');
+  let session = null;
+  try {
+    session = JSON.parse(localStorage.getItem('ops_session') || 'null');
+  } catch {
+    localStorage.removeItem('ops_session');
+    localStorage.removeItem('ops_token');
+  }
   return db.users.find((user) => user.id === session?.user?.id) || db.users[0];
 }
 
