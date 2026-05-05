@@ -66,7 +66,13 @@ function App() {
   const [session, setSession] = useState(() => {
     try {
       const raw = localStorage.getItem('ops_session');
-      return raw ? JSON.parse(raw) : null;
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved?.user?.email === 'owner@brightlinehvac.com') {
+        localStorage.removeItem('ops_session');
+        localStorage.removeItem('ops_token');
+        return null;
+      }
+      return saved;
     } catch {
       localStorage.removeItem('ops_session');
       localStorage.removeItem('ops_token');
@@ -91,11 +97,11 @@ function App() {
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({
-    businessName: 'Brightline HVAC',
-    industry: 'HVAC services',
-    name: 'Sam Owner',
-    email: 'owner@brightlinehvac.com',
-    password: 'password123'
+    businessName: '',
+    industry: '',
+    name: '',
+    email: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

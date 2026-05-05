@@ -37,8 +37,8 @@ function defaultDb() {
   }));
 
   return {
-    businesses: [{ id: businessId, name: 'Brightline HVAC', industry: 'HVAC services', phone: '(555) 019-4481', timezone: 'America/New_York' }],
-    users: [{ id: userId, business_id: businessId, name: 'Sam Owner', email: 'owner@brightlinehvac.com', password: 'password123', role: 'owner' }],
+    businesses: [{ id: businessId, name: 'Sample Service Co.', industry: 'Service business', phone: '(555) 019-4481', timezone: 'America/New_York' }],
+    users: [],
     aiSettings: [{ business_id: businessId, assistant_name: 'Ava', tone: 'warm, efficient, and professional', auto_create_tasks: 1, auto_schedule: 0, escalation_rules: 'Complaints, billing disputes, and emergencies should be reviewed by a human.' }],
     customers,
     conversations,
@@ -57,7 +57,11 @@ function loadDb() {
   if (raw) {
     try {
       const db = JSON.parse(raw);
-      if (db?.users?.length && db?.businesses?.length) return db;
+      if (db?.businesses?.length) {
+        db.users = (db.users || []).filter((user) => user.email !== 'owner@brightlinehvac.com');
+        saveDb(db);
+        return db;
+      }
     } catch {
       localStorage.removeItem(DB_KEY);
     }
@@ -79,7 +83,12 @@ function currentUser(db) {
     localStorage.removeItem('ops_session');
     localStorage.removeItem('ops_token');
   }
-  return db.users.find((user) => user.id === session?.user?.id) || db.users[0];
+  const user = db.users.find((item) => item.id === session?.user?.id);
+  if (!user) {
+    localStorage.removeItem('ops_session');
+    localStorage.removeItem('ops_token');
+  }
+  return user;
 }
 
 function analysisFor(message, business, settings) {
@@ -114,15 +123,17 @@ export async function localApi(path, options = {}) {
   const method = options.method || 'GET';
   const body = options.body ? JSON.parse(options.body) : {};
   const user = currentUser(db);
-  const businessId = user.business_id;
+  const businessId = user?.business_id;
 
   if (path === '/auth/login' && method === 'POST') {
+    if (body.email?.toLowerCase() === 'owner@brightlinehvac.com') throw new Error('Use signup to create your own workspace.');
     const found = db.users.find((item) => item.email.toLowerCase() === body.email.toLowerCase() && item.password === body.password);
     if (!found) throw new Error('Invalid email or password');
     return { token: `local-${found.id}`, user: { id: found.id, business_id: found.business_id, name: found.name, email: found.email, role: found.role } };
   }
 
   if (path === '/auth/signup' && method === 'POST') {
+    if (body.email?.toLowerCase() === 'owner@brightlinehvac.com') throw new Error('That demo email is reserved. Use your own email.');
     if (db.users.some((item) => item.email.toLowerCase() === body.email.toLowerCase())) throw new Error('Email already exists');
     const newBusinessId = id();
     const newUser = { id: id(), business_id: newBusinessId, name: body.name, email: body.email.toLowerCase(), password: body.password, role: 'owner' };
