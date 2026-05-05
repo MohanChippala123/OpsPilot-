@@ -43,8 +43,6 @@ function api(path, options = {}) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Request failed');
     return data;
-  }).catch(() => {
-    return localApi(path, options);
   });
 }
 
@@ -85,11 +83,11 @@ function App() {
 function AuthScreen({ onAuth }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({
-    businessName: 'Brightline HVAC',
-    industry: 'HVAC services',
-    name: 'Sam Owner',
-    email: 'owner@brightlinehvac.com',
-    password: 'password123'
+    businessName: '',
+    industry: '',
+    name: '',
+    email: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -107,7 +105,7 @@ function AuthScreen({ onAuth }) {
       localStorage.setItem('ops_session', JSON.stringify(data));
       onAuth(data);
     } catch (err) {
-      setError(err.message);
+      setError(err.message === 'Backend unavailable' ? 'OpsPilot is not connected to its production API yet.' : err.message);
     } finally {
       setLoading(false);
     }
@@ -174,7 +172,7 @@ function AuthScreen({ onAuth }) {
           {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <button className="button-primary mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white" disabled={loading}>
             {loading && <Loader2 size={16} className="animate-spin" />}
-            Continue
+            {mode === 'login' ? 'Log in' : 'Create workspace'}
           </button>
           <InstallButton className="mt-3 w-full justify-center" />
         </form>

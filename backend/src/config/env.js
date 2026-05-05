@@ -20,7 +20,7 @@ export const env = envSchema.parse({
 });
 
 if (env.NODE_ENV === 'production' && env.AI_PROVIDER === 'mock') {
-  console.warn('AI_PROVIDER is set to mock. Configure a real provider before inviting public users.');
+  throw new Error('AI_PROVIDER cannot be mock in production. Set AI_PROVIDER=openai or anthropic and provide the matching API key.');
 }
 
 if (env.AI_PROVIDER === 'openai' && !env.OPENAI_API_KEY) {
