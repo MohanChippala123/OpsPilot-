@@ -251,28 +251,55 @@ function Shell({ children, page, setPage, session, setSession }) {
         </div>
       </aside>
       <main className="px-4 py-5 sm:px-6 lg:px-8">
-        <TopBar />
+        <TopBar setPage={setPage} />
         <div className="page-enter">{children}</div>
       </main>
     </div>
   );
 }
 
-function TopBar() {
+function TopBar({ setPage }) {
+  const [query, setQuery] = useState('');
+  const [notice, setNotice] = useState('');
+
+  function flash(message) {
+    setNotice(message);
+    window.clearTimeout(window.__opspilotNoticeTimer);
+    window.__opspilotNoticeTimer = window.setTimeout(() => setNotice(''), 2600);
+  }
+
+  function search(event) {
+    event.preventDefault();
+    const value = query.trim().toLowerCase();
+    if (!value) {
+      flash('Type what you want to find first.');
+      return;
+    }
+    const target = value.includes('calendar') || value.includes('appointment') || value.includes('schedule')
+      ? 'calendar'
+      : value.includes('job') || value.includes('task')
+        ? 'tasks'
+        : 'messages';
+    setPage(target);
+    flash(`Opened ${target} for "${query.trim()}".`);
+  }
+
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-line bg-white/78 p-3 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 text-sm text-muted md:min-w-[340px]">
+    <div className="relative mb-6 flex flex-col gap-3 rounded-2xl border border-line bg-white/78 p-3 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
+      <form onSubmit={search} className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2 text-sm text-muted md:min-w-[340px]">
         <Search size={16} />
-        Search messages, jobs, customers
-      </div>
+        <input className="w-full bg-transparent text-sm outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search messages, jobs, customers" />
+        <button type="submit" className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-ink shadow-sm">Search</button>
+      </form>
       <div className="flex items-center gap-2">
-        <button className="icon-button" title="Notifications"><Bell size={17} /></button>
+        <button type="button" onClick={() => flash('No new notifications right now.')} className="icon-button" title="Notifications"><Bell size={17} /></button>
         <InstallButton />
-        <button className="button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold">
+        <button type="button" onClick={() => { setPage('messages'); flash('Opened Messages. Add an incoming message to start a workflow.'); }} className="button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold">
           <Plus size={16} />
           New workflow
         </button>
       </div>
+      {notice && <div className="absolute right-3 top-full z-20 mt-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold shadow-soft">{notice}</div>}
     </div>
   );
 }
@@ -359,6 +386,7 @@ function Messages() {
   const { data, loading, error, reload } = useApi('/messages');
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState('');
+  const [actionError, setActionError] = useState('');
   const [incoming, setIncoming] = useState({ customerName: 'Jordan Lee', customerEmail: 'jordan@example.com', customerPhone: '(555) 019-9191', channel: 'sms', body: 'Can we book a maintenance visit for tomorrow afternoon?' });
   const conversations = data?.conversations || [];
   const active = selected || conversations[0];
@@ -369,15 +397,27 @@ function Messages() {
 
   async function createIncoming(event) {
     event.preventDefault();
-    await api('/messages/incoming', { method: 'POST', body: JSON.stringify(incoming) });
-    await reload();
+    setActionError('');
+    try {
+      await api('/messages/incoming', { method: 'POST', body: JSON.stringify(incoming) });
+      await reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
   }
 
   async function approve() {
-    const detail = await api(`/messages/${active.id}`);
-    const latest = detail.messages.filter((m) => m.ai_suggestion).at(-1);
-    await api(`/messages/${latest.id}/approve`, { method: 'POST', body: JSON.stringify({ body: draft }) });
-    await reload();
+    setActionError('');
+    try {
+      if (!active) throw new Error('Select a conversation first.');
+      const detail = await api(`/messages/${active.id}`);
+      const latest = detail.messages.filter((m) => m.ai_suggestion).at(-1);
+      if (!latest) throw new Error('No AI suggestion is ready for this conversation yet.');
+      await api(`/messages/${latest.id}/approve`, { method: 'POST', body: JSON.stringify({ body: draft }) });
+      await reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
   }
 
   if (loading) return <PageSkeleton title="Messages" />;
@@ -408,6 +448,7 @@ function Messages() {
                 </div>
               </div>
             ) : <EmptyState text="No conversation selected." />}
+            {actionError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
           </Panel>
           <Panel title="Simulate incoming message">
             <form onSubmit={createIncoming} className="grid gap-3 md:grid-cols-2">
