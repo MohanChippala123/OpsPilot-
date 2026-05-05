@@ -1,15 +1,8 @@
-# OpsPilot
+# OpsPilot | AI Operations Assistant
 
-OpsPilot is an installable AI operations workspace for service businesses. It gives teams a shared inbox, AI reply drafting, task creation, appointment tracking, and business-level assistant settings from one production web app.
+OpsPilot is a full-stack AI operations assistant for small service businesses. It handles customer messages, AI reply suggestions, scheduling, reminders, jobs, and business-level AI behavior settings.
 
-This repo now deploys as an actual full-stack app:
-
-- Express API under `/api`
-- React dashboard served by the backend in production
-- Persistent server-side database
-- JWT authentication
-- PWA install support for desktop and mobile browsers
-- OpenAI or Anthropic provider required in production
+The app is deployable as a single Node service: Express serves the API under `/api` and serves the compiled React dashboard from `frontend/dist`.
 
 ## Local Development
 
@@ -22,12 +15,10 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-Local seed login:
+Demo login:
 
 - Email: `owner@brightlinehvac.com`
 - Password: `password123`
-
-Seed data is refused when `NODE_ENV=production`.
 
 ## Production Build
 
@@ -37,33 +28,22 @@ npm run build
 npm start
 ```
 
-The production backend serves `frontend/dist` and exposes health checks at `/health` and `/ready`.
+Required production variables are listed in `.env.production.example`.
 
-## Production Environment
+## Deployment
 
-Use `.env.production.example` as the checklist:
+Use one of the included deployment paths:
 
-- `NODE_ENV=production`
-- `PORT=4000`
-- `DATABASE_URL=./backend/data/ops-assistant.db`
-- `JWT_SECRET` with at least 32 random characters
-- `CORS_ORIGINS=https://your-production-domain.com`
-- `AI_PROVIDER=openai` or `anthropic`
-- `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
-
-`AI_PROVIDER=mock` is blocked in production.
-
-## Deploy
-
-Use Render Blueprint or Docker for the real full-stack app. The app needs persistent storage for the database.
-
-```bash
-docker build -t opspilot .
-docker run --env-file .env.production.example -p 4000:4000 -v opspilot-data:/app/backend/data opspilot
-```
-
-Vercel can still host the frontend as a static shell, but that is not the recommended production path for this repo because the real app needs the Express API and persistent server-side data.
+- `vercel.json` for a no-pay static PWA deployment. Data is stored locally in each user's browser.
+- `render.yaml` for a Render Blueprint deployment.
+- `Dockerfile` for container hosting.
+- `DEPLOYMENT.md` for the public launch runbook.
+- `SECURITY.md` for baseline security controls and next hardening steps.
 
 ## Installable App
 
-After deployment, users open the production URL in Chrome or Edge and choose **Install app**. The installed app talks to the production API; data is shared through the backend rather than stored only in the browser.
+The frontend is now a PWA. After deploying the static build, users can open the website in Chrome or Edge and choose **Install app** from the app button or browser menu. Installed data stays on that device unless you connect a cloud database later.
+
+## Important Public Launch Note
+
+The free static PWA stores data in the browser. It is excellent for demos and early validation with no hosting bill. Before real shared team usage or regulated customer data, move to PostgreSQL/Supabase, add email verification/password reset, configure backups, and use a real LLM provider instead of the local mock assistant.

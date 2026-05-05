@@ -1,52 +1,45 @@
-# Production Deployment Runbook
+# Deployment Runbook
 
-OpsPilot deploys as one Node web service. Express serves the compiled React app and all API routes.
+OpsPilot can run as one Node web service in production. The backend serves the compiled React app from `frontend/dist` and exposes API routes under `/api`.
 
-## Recommended Host
+## Required Environment Variables
 
-Use Render, Railway, Fly.io, or any Docker host that supports:
-
-- Node 24
-- A persistent disk or volume mounted at `backend/data`
-- HTTPS
-- Environment variables
-
-## Render Blueprint
-
-1. Push `main` to GitHub.
-2. In Render, create a new Blueprint from this repo.
-3. Let Render detect `render.yaml`.
-4. Add `OPENAI_API_KEY` or switch `AI_PROVIDER=anthropic` and add `ANTHROPIC_API_KEY`.
-5. Set `CORS_ORIGINS` to the final Render URL or your custom domain.
-6. Apply the Blueprint.
-7. After deploy, open `/health`, then create a real account from the signup screen.
-
-The included `render.yaml` uses a persistent disk because this app is no longer browser-local demo software.
-
-## Required Variables
+Use `.env.production.example` as the checklist.
 
 - `NODE_ENV=production`
 - `PORT=4000`
-- `DATABASE_URL=./backend/data/ops-assistant.db`
-- `JWT_SECRET`
-- `JWT_EXPIRES_IN=7d`
-- `CORS_ORIGINS=https://your-domain.com`
-- `AI_PROVIDER=openai`
-- `OPENAI_API_KEY=...`
+- `DATABASE_URL=./backend/data/ops-assistant.db` for the included SQLite MVP
+- `JWT_SECRET` with at least 32 random characters
+- `CORS_ORIGINS=https://your-production-domain.com`
+- `AI_PROVIDER=openai` or `anthropic` for public users
+- `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
 
-## Verification
+## Render
 
-Run these checks before inviting users:
+1. Push this repo to GitHub.
+2. Create a Render Blueprint from `render.yaml`.
+3. Set `CORS_ORIGINS` to the Render service URL or your custom domain.
+4. Replace `AI_PROVIDER=mock` with a real provider before inviting customers.
+5. Add the matching API key as a secret environment variable.
+6. Deploy.
 
-- `npm run build` passes.
-- `/health` returns `{ "ok": true }`.
-- `/ready` returns `{ "ok": true, "database": "connected" }`.
-- Signup creates a new workspace.
-- Login works after browser refresh.
-- Messages create AI suggestions.
-- Tasks and appointments persist after service restart.
-- The browser install prompt appears from the production URL.
+## Docker
 
-## Important Note
+```bash
+docker build -t opspilot .
+docker run --env-file .env.production.example -p 4000:4000 -v opspilot-data:/app/backend/data opspilot
+```
 
-The production app must have persistent storage. A free static-only Vercel deployment is useful for previews, but it is not the actual shared OpsPilot product.
+## Production Checklist
+
+- Build passes with `npm run build`.
+- `/health` and `/ready` return `{ "ok": true }`.
+- Signup, login, dashboard, messages, tasks, calendar, and settings work.
+- A persistent disk or volume is mounted for `backend/data`.
+- A real AI provider is configured.
+- Demo seed data is not run in production.
+- `JWT_SECRET` is rotated before launch.
+
+## Notes
+
+SQLite is acceptable for a low-traffic MVP and customer validation. Move to PostgreSQL before heavy concurrent usage, multi-region deployment, advanced reporting, or strict backup/restore requirements.
