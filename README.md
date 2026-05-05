@@ -34,11 +34,16 @@ Required production variables are listed in `.env.production.example`.
 
 Use one of the included deployment paths:
 
+- `vercel.json` for a no-pay static PWA deployment. Data is stored locally in each user's browser.
 - `render.yaml` for a Render Blueprint deployment.
 - `Dockerfile` for container hosting.
 - `DEPLOYMENT.md` for the public launch runbook.
 - `SECURITY.md` for baseline security controls and next hardening steps.
 
+## Installable App
+
+The frontend is now a PWA. After deploying the static build, users can open the website in Chrome or Edge and choose **Install app** from the app button or browser menu. Installed data stays on that device unless you connect a cloud database later.
+
 ## Important Public Launch Note
 
-The included SQLite database is fine for MVP validation. Before real scale or regulated customer data, move to PostgreSQL, add email verification/password reset, configure backups, and use a real LLM provider instead of `AI_PROVIDER=mock`.
+The free static PWA stores data in the browser. It is excellent for demos and early validation with no hosting bill. Before real shared team usage or regulated customer data, move to PostgreSQL/Supabase, add email verification/password reset, configure backups, and use a real LLM provider instead of the local mock assistant.

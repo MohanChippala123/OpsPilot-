@@ -22,10 +22,13 @@ import {
   Zap
 } from 'lucide-react';
 import './styles.css';
+import { localApi } from './localApi.js';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api');
+const FORCE_LOCAL_APP = import.meta.env.VITE_LOCAL_APP === 'true';
 
 function api(path, options = {}) {
+  if (FORCE_LOCAL_APP) return localApi(path, options);
   const token = localStorage.getItem('ops_token');
   return fetch(`${API_URL}${path}`, {
     ...options,
@@ -35,9 +38,19 @@ function api(path, options = {}) {
       ...options.headers
     }
   }).then(async (res) => {
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) throw new Error('Backend unavailable');
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Request failed');
     return data;
+  }).catch(() => {
+    return localApi(path, options);
+  });
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {});
   });
 }
 
@@ -163,6 +176,7 @@ function AuthScreen({ onAuth }) {
             {loading && <Loader2 size={16} className="animate-spin" />}
             Continue
           </button>
+          <InstallButton className="mt-3 w-full justify-center" />
         </form>
       </section>
     </main>
@@ -229,12 +243,49 @@ function TopBar() {
       </div>
       <div className="flex items-center gap-2">
         <button className="icon-button" title="Notifications"><Bell size={17} /></button>
+        <InstallButton />
         <button className="button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold">
           <Plus size={16} />
           New workflow
         </button>
       </div>
     </div>
+  );
+}
+
+function InstallButton({ className = '' }) {
+  const [prompt, setPrompt] = useState(null);
+  const [installed, setInstalled] = useState(window.matchMedia?.('(display-mode: standalone)').matches);
+
+  useEffect(() => {
+    function beforeInstall(event) {
+      event.preventDefault();
+      setPrompt(event);
+    }
+    function appInstalled() {
+      setInstalled(true);
+      setPrompt(null);
+    }
+    window.addEventListener('beforeinstallprompt', beforeInstall);
+    window.addEventListener('appinstalled', appInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', beforeInstall);
+      window.removeEventListener('appinstalled', appInstalled);
+    };
+  }, []);
+
+  async function install() {
+    if (!prompt) return;
+    prompt.prompt();
+    await prompt.userChoice;
+    setPrompt(null);
+  }
+
+  return (
+    <button type="button" onClick={install} disabled={!prompt || installed} className={`button-secondary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${className}`}>
+      <ArrowUpRight size={16} />
+      {installed ? 'Installed' : 'Install app'}
+    </button>
   );
 }
 
