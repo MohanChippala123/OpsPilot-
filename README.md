@@ -15,10 +15,7 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-Demo login:
-
-- Email: `owner@brightlinehvac.com`
-- Password: `password123`
+For the public preview flow, use **Preview the app** or create a fresh signup. The old preloaded demo account is intentionally disabled.
 
 ## Production Build
 
@@ -39,6 +36,9 @@ Use one of the included deployment paths:
 - `Dockerfile` for container hosting.
 - `DEPLOYMENT.md` for the public launch runbook.
 - `SECURITY.md` for baseline security controls and next hardening steps.
+- `PUBLIC_LAUNCH_CHECKLIST.md` for the Vercel smoke test and launch checklist.
+- `STARTUP_LAUNCH_KIT.md` for Instagram copy, founder DMs, and demo script.
+- `YC_APPLICATION_DRAFT.md` for accelerator application prep.
 
 ## Installable App
 

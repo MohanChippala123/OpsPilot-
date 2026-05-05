@@ -13,6 +13,7 @@ import {
   Loader2,
   LogOut,
   MessageSquareText,
+  PlayCircle,
   Plus,
   Search,
   Settings,
@@ -90,7 +91,7 @@ function App() {
 
   return (
     <Shell page={page} setPage={setPage} session={session} setSession={setSession}>
-      {page === 'dashboard' && <Dashboard />}
+      {page === 'dashboard' && <Dashboard setPage={setPage} />}
       {page === 'messages' && <Messages />}
       {page === 'calendar' && <CalendarPage />}
       {page === 'tasks' && <Tasks />}
@@ -129,6 +130,31 @@ function AuthScreen({ onAuth }) {
       const data = await api(`/auth/${mode}`, {
         method: 'POST',
         body: JSON.stringify(mode === 'login' ? { email: form.email, password: form.password } : form)
+      });
+      localStorage.setItem('ops_token', data.token);
+      localStorage.setItem('ops_session', JSON.stringify(data));
+      onAuth(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startDemo() {
+    const stamp = Date.now();
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api('/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          businessName: 'Launch Preview Co.',
+          industry: 'Home services',
+          name: 'Founder Preview',
+          email: `founder-${stamp}@opspilot.local`,
+          password: `preview-${stamp}`
+        })
       });
       localStorage.setItem('ops_token', data.token);
       localStorage.setItem('ops_session', JSON.stringify(data));
@@ -192,18 +218,22 @@ function AuthScreen({ onAuth }) {
           <div className="space-y-3">
             {mode === 'signup' && (
               <>
-                <Input label="Business name" name="opspilot-business-name" autoComplete="off" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} />
-                <Input label="Industry" name="opspilot-industry" autoComplete="off" value={form.industry} onChange={(industry) => setForm({ ...form, industry })} />
-                <Input label="Your name" name="opspilot-owner-name" autoComplete="off" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+                <Input required label="Business name" name="opspilot-business-name" autoComplete="off" value={form.businessName} onChange={(businessName) => setForm({ ...form, businessName })} />
+                <Input required label="Industry" name="opspilot-industry" autoComplete="off" value={form.industry} onChange={(industry) => setForm({ ...form, industry })} />
+                <Input required label="Your name" name="opspilot-owner-name" autoComplete="off" value={form.name} onChange={(name) => setForm({ ...form, name })} />
               </>
             )}
-            <Input label="Email" name={`opspilot-${mode}-email`} autoComplete="off" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-            <Input label="Password" name={`opspilot-${mode}-password`} autoComplete="new-password" type="password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+            <Input required label="Email" name={`opspilot-${mode}-email`} autoComplete="off" type="email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
+            <Input required label="Password" name={`opspilot-${mode}-password`} autoComplete="new-password" type="password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
           </div>
           {error && <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           <button className="button-primary mt-5 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white" disabled={loading}>
             {loading && <Loader2 size={16} className="animate-spin" />}
             Continue
+          </button>
+          <button type="button" onClick={startDemo} disabled={loading} className="button-secondary mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold">
+            <PlayCircle size={16} />
+            Preview the app
           </button>
           <InstallButton className="mt-3 w-full justify-center" />
         </form>
@@ -353,20 +383,20 @@ function InstallButton({ className = '' }) {
   );
 }
 
-function Dashboard() {
+function Dashboard({ setPage }) {
   const { data, loading, error, reload } = useApi('/dashboard');
   if (loading) return <PageSkeleton title="Dashboard" />;
   if (error || !data?.counts) return <PageError title="Dashboard" error={error} onRetry={reload} />;
   const cards = [
-    ['Open messages', data.counts.openMessages, MessageSquareText],
-    ['AI suggestions', data.counts.aiSuggestions, Sparkles],
-    ['Today appointments', data.counts.todayAppointments, CalendarDays],
-    ['Open jobs', data.counts.openTasks, ClipboardList]
+    ['Open messages', data.counts.openMessages, MessageSquareText, 'messages'],
+    ['AI suggestions', data.counts.aiSuggestions, Sparkles, 'messages'],
+    ['Today appointments', data.counts.todayAppointments, CalendarDays, 'calendar'],
+    ['Open jobs', data.counts.openTasks, ClipboardList, 'tasks']
   ];
   return (
     <Page title="Dashboard" subtitle="A live morning view of messages, appointments, and work that needs attention.">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map(([label, value, Icon], index) => <Metric key={label} label={label} value={value} Icon={Icon} index={index} />)}
+        {cards.map(([label, value, Icon, target], index) => <Metric key={label} label={label} value={value} Icon={Icon} index={index} onClick={() => setPage(target)} />)}
       </div>
       <div className="mt-6 grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
         <OperationsPulse counts={data.counts} />
@@ -416,10 +446,12 @@ function Messages() {
     try {
       if (!active) throw new Error('Select a conversation first.');
       const detail = await api(`/messages/${active.id}`);
-      const latest = detail.messages.filter((m) => m.ai_suggestion).at(-1);
+      const latest = detail.messages.filter((m) => m.ai_suggestion && m.status === 'suggested').at(-1);
       if (!latest) throw new Error('No AI suggestion is ready for this conversation yet.');
       await api(`/messages/${latest.id}/approve`, { method: 'POST', body: JSON.stringify({ body: draft }) });
       await reload();
+      setSelected(null);
+      setDraft('');
     } catch (err) {
       setActionError(err.message);
     }
@@ -471,6 +503,19 @@ function Messages() {
 
 function CalendarPage() {
   const { data, loading, error, reload } = useApi('/appointments');
+  const [actionError, setActionError] = useState('');
+  const slots = ['9:00 AM', '11:30 AM', '2:00 PM', '4:30 PM'];
+
+  async function bookSlot(slot) {
+    setActionError('');
+    try {
+      await api('/appointments', { method: 'POST', body: JSON.stringify({ slot }) });
+      await reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
+  }
+
   if (loading) return <PageSkeleton title="Calendar" />;
   if (error || !data?.appointments) return <PageError title="Calendar" error={error} onRetry={reload} />;
   return (
@@ -482,7 +527,8 @@ function CalendarPage() {
           </div>
         </Panel>
         <Panel title="Empty slots">
-          {['9:00 AM', '11:30 AM', '2:00 PM', '4:30 PM'].map((slot) => <div key={slot} className="rounded-lg border border-dashed border-line p-3 text-sm text-muted">Available today at {slot}</div>)}
+          {slots.map((slot) => <button type="button" key={slot} onClick={() => bookSlot(slot)} className="w-full rounded-lg border border-dashed border-line p-3 text-left text-sm text-muted hover:border-brand hover:bg-teal-50">Available today at {slot}</button>)}
+          {actionError && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
         </Panel>
       </div>
     </Page>
@@ -491,19 +537,26 @@ function CalendarPage() {
 
 function Tasks() {
   const { data, loading, error, reload } = useApi('/tasks');
+  const [actionError, setActionError] = useState('');
   const columns = [
     ['todo', 'To do'],
     ['in_progress', 'In progress'],
     ['done', 'Done']
   ];
   async function move(id, status) {
-    await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    await reload();
+    setActionError('');
+    try {
+      await api(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
   }
   if (loading) return <PageSkeleton title="Jobs" />;
   if (error || !data?.tasks) return <PageError title="Jobs" error={error} onRetry={reload} />;
   return (
     <Page title="Jobs" subtitle="Kanban-style workflow for service requests, reminders, and follow-ups.">
+      {actionError && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
       <div className="grid gap-4 lg:grid-cols-3">
         {columns.map(([status, title]) => (
           <Panel key={status} title={title}>
@@ -511,7 +564,7 @@ function Tasks() {
               <div key={task.id} className="rounded-lg border border-line bg-white p-4">
                 <TaskRow task={task} />
                 <div className="mt-3 flex gap-2">
-                  {columns.map(([next]) => <button key={next} onClick={() => move(task.id, next)} className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:bg-gray-50">{next.replace('_', ' ')}</button>)}
+                  {columns.map(([next]) => <button key={next} type="button" disabled={task.status === next} onClick={() => move(task.id, next)} className="rounded-md border border-line px-2 py-1 text-xs text-muted hover:bg-gray-50 disabled:bg-gray-100">{next.replace('_', ' ')}</button>)}
                 </div>
               </div>
             ))}
@@ -525,6 +578,7 @@ function Tasks() {
 function SettingsPage() {
   const { data, loading, error, reload } = useApi('/settings');
   const [saved, setSaved] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [form, setForm] = useState(null);
   useEffect(() => {
     if (data && !form) setForm({
@@ -541,9 +595,15 @@ function SettingsPage() {
 
   async function save(event) {
     event.preventDefault();
-    await api('/settings', { method: 'PUT', body: JSON.stringify(form) });
-    setSaved(true);
-    await reload();
+    setSaved(false);
+    setActionError('');
+    try {
+      await api('/settings', { method: 'PUT', body: JSON.stringify(form) });
+      setSaved(true);
+      await reload();
+    } catch (err) {
+      setActionError(err.message);
+    }
   }
 
   if (loading) return <PageSkeleton title="Settings" />;
@@ -566,8 +626,9 @@ function SettingsPage() {
             <textarea className="mt-1 min-h-24 w-full rounded-lg border border-line p-3 text-sm" value={form.escalationRules} onChange={(event) => setForm({ ...form, escalationRules: event.target.value })} />
           </label>
         </Panel>
-        <button className="rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white lg:w-fit">Save settings</button>
+        <button type="submit" className="rounded-lg bg-ink px-4 py-3 text-sm font-semibold text-white lg:w-fit">Save settings</button>
         {saved && <p className="self-center text-sm text-brand">Saved</p>}
+        {actionError && <p className="self-center rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
       </form>
     </Page>
   );
@@ -624,12 +685,12 @@ function Panel({ title, action, children }) {
   return <section className="panel-card rounded-2xl p-4"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-bold">{title}</h2>{action}</div><div className="space-y-3">{children}</div></section>;
 }
 
-function Metric({ label, value, Icon, index = 0 }) {
-  return <div className="metric-card rounded-2xl p-5" style={{ animationDelay: `${index * 70}ms` }}><div className="flex items-center justify-between"><Icon size={20} className="text-brand" /><ArrowUpRight size={16} className="text-muted" /></div><p className="mt-4 text-4xl font-bold">{value}</p><p className="text-sm text-muted">{label}</p></div>;
+function Metric({ label, value, Icon, index = 0, onClick }) {
+  return <button type="button" onClick={onClick} className="metric-card rounded-2xl p-5 text-left" style={{ animationDelay: `${index * 70}ms` }}><div className="flex items-center justify-between"><Icon size={20} className="text-brand" /><ArrowUpRight size={16} className="text-muted" /></div><p className="mt-4 text-4xl font-bold">{value}</p><p className="text-sm text-muted">{label}</p></button>;
 }
 
-function Input({ label, value, onChange, type = 'text', name, autoComplete = 'off' }) {
-  return <label className="block text-sm font-medium">{label}<input className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" name={name} autoComplete={autoComplete} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+function Input({ label, value, onChange, type = 'text', name, autoComplete = 'off', required = false }) {
+  return <label className="block text-sm font-medium">{label}<input required={required} className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" name={name} autoComplete={autoComplete} type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Toggle({ label, checked, onChange }) {

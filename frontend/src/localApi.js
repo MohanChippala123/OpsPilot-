@@ -180,13 +180,48 @@ export async function localApi(path, options = {}) {
   if (approveMatch && method === 'POST') {
     const message = db.messages.find((item) => item.id === approveMatch[1] && item.business_id === businessId);
     if (!message) throw new Error('Message not found');
+    if (message.status !== 'suggested') throw new Error('This suggestion has already been handled.');
     message.status = 'approved';
     db.messages.push({ id: id(), conversation_id: message.conversation_id, business_id: businessId, sender_type: 'user', body: body.body, status: 'sent', created_at: now() });
+    const conversation = db.conversations.find((item) => item.id === message.conversation_id);
+    if (conversation) {
+      conversation.last_message_at = now();
+      conversation.status = 'open';
+    }
     saveDb(db);
     return { id: id() };
   }
 
-  if (path === '/appointments') return { appointments: db.appointments.filter((item) => item.business_id === businessId) };
+  if (path === '/appointments' && method === 'GET') return { appointments: db.appointments.filter((item) => item.business_id === businessId) };
+
+  if (path === '/appointments' && method === 'POST') {
+    const business = db.businesses.find((item) => item.id === businessId);
+    const customer = { id: id(), business_id: businessId, name: 'New lead', email: 'newlead@example.com', phone: '' };
+    const [time, meridian] = String(body.slot || '9:00 AM').split(' ');
+    const [hourText, minuteText = '00'] = time.split(':');
+    let hour = Number(hourText);
+    if (meridian === 'PM' && hour !== 12) hour += 12;
+    if (meridian === 'AM' && hour === 12) hour = 0;
+    const start = new Date();
+    start.setHours(hour, Number(minuteText), 0, 0);
+    const end = new Date(start.getTime() + 90 * 60 * 1000);
+    db.customers.push(customer);
+    db.appointments.push({
+      id: id(),
+      business_id: businessId,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      title: `${business?.name || 'OpsPilot'} intro call`,
+      description: 'Booked from an open calendar slot.',
+      start_at: start.toISOString(),
+      end_at: end.toISOString(),
+      status: 'scheduled',
+      created_at: now()
+    });
+    saveDb(db);
+    return { ok: true };
+  }
+
   if (path === '/tasks' && method === 'GET') return { tasks: db.tasks.filter((task) => task.business_id === businessId) };
 
   const taskMatch = path.match(/^\/tasks\/([^/]+)$/);
